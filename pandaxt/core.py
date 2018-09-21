@@ -9,7 +9,7 @@ import ccxt
 import pandas as pd
 import tulipy
 
-from utils import load_dotenv, dict_none_drop, magic2num
+from pandaxt.utils import load_dotenv, dict_none_drop, magic2num
 
 OHLC_FIELDS = ['date', 'open', 'high', 'low', 'close', 'volume']
 
