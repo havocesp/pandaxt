@@ -6,7 +6,7 @@ A Python 3 "__ccxt__" wrapper over __Pandas__ lib.
  - License: MIT
  - Version: 0.1.2
 
-## Decription
+## Description
 
 Python ccxt multi-exchange lib mixed with pandas lib for data handling.
 
