@@ -47,6 +47,7 @@ class PandaXT:
 
     @property
     def name(self):
+        # noinspection PyUnresolvedReferences
         return self._api.name
 
     def cost2precision(self, symbol, cost):
@@ -242,27 +243,60 @@ class PandaXT:
 
         :return list: valid exchange timeframes.
         """
+        # noinspection PyUnresolvedReferences
         items = self._api.timeframes.items()
         od = OrderedDict(sorted(items, key=lambda x: x[1]))
         return list(od.keys())
 
-    def buy(self, symbol, amount, price=None):
+    def create_market_order(self, symbol, side):
+        """
+        Create a market order order.
+
+        :param str symbol: a valid exchange symbol.
+        :param str side: accepted values: "buy", "sell"
+        :return dict: order creation result data as dict.
+        """
+        symbol = str(symbol).upper()
+        side = str(side).lower()
+
+        assert symbol in self.symbols, 'Invalid symbol: {}'.format(symbol)
+        assert side in ['buy', 'sell'], 'Invalid side: {} (accepted values: "buy", "sell")'.format(side)
+
+        base, quote = symbol.split('/')
+
+        if side in 'buy':
+            amount = magic2num(self.get_balances('free').get(quote))
+        else:
+            amount = magic2num(self.get_balances('free').get(base))
+
+        return self._api.create_order(symbol, type='market', side=side, amount=amount)
+
+    def buy(self, symbol, amount=None, price=None):
         """
         Create buy order.
 
-        :param str symbol:
-        :param float amount:
-        :param float price:
-        :return:
+        :param str symbol: a valid exchange symbol.
+        :param float amount: amount to buy or None to auto-fill
+        :param float price: buy price or None to auto-fill
+        :return dict: order creation result data as dict.
         """
         symbol = str(symbol).upper()
         assert symbol in self.symbols, 'Invalid symbol: {}'.format(symbol)
-        amount = magic2num(amount or self.get_balances('free').get(symbol))
+        base, quote = symbol.split('/')
+        amount = magic2num(amount or self.get_balances('free').get(quote))
         price = magic2num(price or self.get_ticker(symbol).get('ask'))
 
-        return self._api.create_order(symbol, 'limit', 'buy', magic2num(amount or price), magic2num(price))
+        return self._api.create_order(symbol, type='limit', side='buy', amount=amount, price=price)
 
     def sell(self, symbol, amount=None, price=None):
+        """
+        Create sell order.
+
+        :param str symbol: a valid exchange symbol.
+        :param float amount: amount to sell or None to auto-fill
+        :param float price: sell price or None to auto-fill
+        :return dict: order creation result data as dict.
+        """
         """
         Create buy order.
 
@@ -273,10 +307,11 @@ class PandaXT:
         """
         symbol = str(symbol).upper()
         assert symbol in self.symbols, 'Invalid symbol: {}'.format(symbol)
-        amount = magic2num(amount or self.get_balances('used').get(symbol))
-        price = magic2num(price or self.get_ticker(symbol).get('ask'))
+        base, quote = symbol.split('/')
+        amount = magic2num(amount or self.get_balances('free').get(base))
+        price = magic2num(price or self.get_ticker(symbol).get('bid'))
 
-        return self._api.create_order(symbol, 'limit', 'sell', magic2num(amount), magic2num(price))
+        return self._api.create_order(symbol, type='limit', side='sell', amount=amount, price=price)
 
     def get_balances(self, field='total'):
         """
@@ -332,7 +367,7 @@ class PandaXT:
         """
         symbol = str(symbol).upper()
 
-        if not '/' in symbol:
+        if '/' not in symbol:
             symbol = '{}/BTC'.format(symbol)
         base, quote = symbol.split('/')
 
@@ -341,7 +376,7 @@ class PandaXT:
 
         buys = trades.query('side == "buy"')
         columns_op = {'amount': 'sum', 'price': 'mean', 'cost': 'mean', 'timestamp': 'mean'}
-        buys = buys.groupby('order').agg(columns_op).sort_index(ascending=False)  # type: DataFrame
+        buys = buys.groupby('order').agg(columns_op).sort_index(ascending=False)  # type: pd.DataFrame
 
         buys = buys[['price', 'amount']].reset_index(drop=True)
         for index, price, amount in buys.itertuples():
@@ -356,6 +391,7 @@ class PandaXT:
             else:
                 balance -= amount
 
+    # no inspection PyUnusedFunction
     def get_order_status(self, order_id, market=None):
         """
         Get order status by order_id.
@@ -380,15 +416,27 @@ class PandaXT:
             del raw['info']
         return raw
 
-    def cancel_order(self, order_id, symbol):
+    def cancel_order(self, symbol, last_only=False):
         """
-        Cancel order for a symbol.
+        Cancel symbols open orders for a symbol.
 
-        :param order_id: a valid order id.
-        :param symbol: symbol who order_id refers to.
-        :return dict: cancellation operation result data as dict.
+        :param str symbol: the symbol with open orders.
+        :param bool last_only: if True, only last order sent will be cancelled.
+        :return list: list of dict with data about cancellations.
         """
-        raw = self._api.cancel_order(order_id, symbol)
-        if 'info' in raw:
-            del raw['info']
-        return raw
+
+        pending_orders = self.get_open_orders(symbol)
+        if len(pending_orders):
+            if last_only:
+                return self._api.cancel_order(pending_orders[-1]['id'], symbol)
+
+            else:
+                canceled_orders = list()
+                for p in pending_orders:
+                    result = self._api.cancel_order(p['id'], symbol)
+
+                    if result and result.get('status', '') in 'cancel':
+                        canceled_orders.append({k: v for k, v in result.items() if v})
+                    else:
+                        self._api.cancel_order(pending_orders['id'], symbol)
+                return canceled_orders
