@@ -1,7 +1,8 @@
 # -*- coding:utf-8 -*-
 from setuptools import setup, find_packages
 
-from pandaxt import (__version__, __author__, __description__, __site__, __email__, __license__, __keywords__)
+from pandaxt import (__version__, __author__, __description__, __site__, __email__, __license__, __keywords__,
+                     __package__)
 
 exclude = ['.idea*', 'build*', '{}.egg-info*'.format(__package__), 'dist*', 'venv*', 'doc*', 'lab*']
 
