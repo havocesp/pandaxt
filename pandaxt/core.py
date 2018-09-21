@@ -291,7 +291,7 @@ class PandaXT:
         base, quote = symbol.split('/')
         amount = magic2num(amount or self.get_balances('free').get(quote))
         price = magic2num(price or self.get_ticker(symbol).get('ask'))
-
+        amount = amount * price
         return self._api.create_order(symbol, type='limit', side='buy', amount=amount, price=price)
 
     def sell(self, symbol, amount=None, price=None):
