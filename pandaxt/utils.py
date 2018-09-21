@@ -52,6 +52,18 @@ def magic2num(v):
     return r if isinstance(r, (float, int)) else v
 
 
+def sort_by(array, key, descending=False):
+    """
+    Sort an "array" by "key".
+
+    :param array:
+    :param key:
+    :param descending:
+    :return:
+    """
+    return sorted(array, key=lambda k: k[key] if k[key] is not None else "", reverse=descending)
+
+
 def load_dotenv(env_path=None):
     """
     Load ".env" file to environment (accessible through "os.environ").
