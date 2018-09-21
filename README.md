@@ -22,6 +22,12 @@ TODO
 ## Changelog
 Project changes over versions.
 
+### 0.1.2
+- New "create_market_order" method.
+- New "sort_by" function in utils module.
+- Unified cancel methods into "cancel_order".
+- Sell and Buy methods auto-fill price and amount if not is supplied as param.
+
 ### 0.1.1
 - Added precision related methods to "_PandaXT_" class.
 
