@@ -45,6 +45,10 @@ class PandaXT:
         if load_markets:
             self._api.load_markets()
 
+    @property
+    def name(self):
+        return self._api.name
+
     def cost2precision(self, symbol, cost):
         """
         Return cost rounded to symbol precision exchange specifications.
