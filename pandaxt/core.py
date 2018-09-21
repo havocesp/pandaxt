@@ -45,8 +45,8 @@ class PandaXT:
         self._api = api(config=settings)
 
         if exchange in 'binance':
-            api.load_time_difference()
-            api.options['parseOrderToPrecision'] = True
+            self._api.load_time_difference()
+            self._api.options['parseOrderToPrecision'] = True
 
         if load_markets:
             self._api.load_markets()
