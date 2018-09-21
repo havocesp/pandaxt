@@ -1,3 +1,5 @@
 .idea
+.vscode
 pandaxt/descriptions
 tests
+pandaxt/__pycache__
