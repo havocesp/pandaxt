@@ -178,9 +178,9 @@ class PandaXT:
         assert len(symbols), 'There is some invalid symbol/s in {}'.format(symbols)
 
         if len(symbols) > 1:
-            tickers = self._api.fetch_ticker(symbols[0])
-        else:
             tickers = self._api.fetch_tickers(symbols)
+        else:
+            tickers = self._api.fetch_ticker(symbols[0])
 
         return dict_none_drop(tickers)
 
