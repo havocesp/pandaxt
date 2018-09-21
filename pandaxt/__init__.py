@@ -12,7 +12,7 @@ __site__ = 'https://github.com/havocesp/{}'.format(__package__)
 __email__ = 'umpierrez@pm.me'
 __keywords__ = ['altcoins', 'altcoin', 'exchange']
 
-from core import PandaXT
+from pandaxt.core import PandaXT
 
 __all__ = ['__description__', '__author__', '__license__', '__version__', '__package__', '__name__', '__site__',
            '__email__', '__keywords__', 'PandaXT']
