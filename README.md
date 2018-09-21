@@ -4,7 +4,7 @@ A Python 3 "__ccxt__" wrapper over __Pandas__ lib.
 
  - Author: Daniel J. Umpierrez
  - License: MIT
- - Version: 0.1.1
+ - Version: 0.1.2
 
 ## Decription
 
