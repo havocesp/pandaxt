@@ -46,22 +46,61 @@ class PandaXT:
             self._api.load_markets()
 
     def cost2precision(self, symbol, cost):
+        """
+        Return cost rounded to symbol precision exchange specifications.
+
+        :param str symbol: a valid exchange symbol.
+        :param float cost: cost to be rounded.
+        :return float: cost rounded to specific symbol exchange specifications.
+        """
         return float(self._api.cost_to_precision(symbol, cost))
 
-    def amount2precision(self, symbol, price):
-        return float(self._api.cost_to_precision(symbol, price))
+    def amount2precision(self, symbol, amount):
+        """
+        Return amount rounded to symbol precision exchange specifications.
+
+        :param str symbol: a valid exchange symbol.
+        :param float amount: amount to be rounded.
+        :return float: amount rounded to specific symbol exchange specifications.
+        """
+        return float(self._api.amount_to_precision(symbol, amount))
 
     def price2precision(self, symbol, price):
+        """
+        Return price rounded to symbol precision exchange specifications.
+
+        :param str symbol: a valid exchange symbol.
+        :param float price: price to be rounded.
+        :return float: price rounded to specific symbol exchange specifications.
+        """
         return float(self._api.price_to_precision(symbol, price))
 
     def get_price_precision(self, symbol):
+        """
+        Get price precision set by exchange for a symbol.
+
+        :param symbol: a valid exchange symbol.
+        :return int: price precision set by exchange for "symbol".
+        """
         return int(self._api.markets[symbol]['precision']['price'])
 
     def get_amount_precision(self, symbol):
+        """
+        Get amount precision set by exchange for a symbol.
+
+        :param symbol: a valid exchange symbol.
+        :return int: amount precision set by exchange for "symbol".
+        """
         return int(self._api.markets[symbol]['precision']['amount'])
 
     def get_cost_precision(self, symbol):
-        return int(self._api.markets[symbol]['precision']['price'])
+        """
+        Get cost precision set by exchange for a symbol.
+
+        :param symbol: a valid exchange symbol.
+        :return int: cost precision set by exchange for "symbol".
+        """
+        return int(self._api.markets[symbol]['precision']['cost'])
 
     @property
     def currencies(self):
