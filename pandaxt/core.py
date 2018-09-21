@@ -16,24 +16,6 @@ OHLC_FIELDS = ['date', 'open', 'high', 'low', 'close', 'volume']
 SETTINGS = dict(config=dict(timeout=25000, enableRateLimit=True))
 
 
-def check_symbol(method):
-    """
-    Symbol checker decorator.
-
-    :param args:
-    :param kwargs:
-    :return:
-    """
-
-    def wrapper(*args, **kwargs):
-        if 'symbol' in kwargs:
-            symbol = kwargs
-        print(args[0].url)
-        return method(*args)
-
-    return wrapper
-
-
 class PandaXT:
     """
     "ccxt" exchanges wrapper class over Pandas lib.
@@ -62,6 +44,24 @@ class PandaXT:
         self._api = api(config=settings)
         if load_markets:
             self._api.load_markets()
+
+    def cost2precision(self, symbol, cost):
+        return float(self._api.cost_to_precision(symbol, cost))
+
+    def amount2precision(self, symbol, price):
+        return float(self._api.cost_to_precision(symbol, price))
+
+    def price2precision(self, symbol, price):
+        return float(self._api.price_to_precision(symbol, price))
+
+    def get_price_precision(self, symbol):
+        return int(self._api.markets[symbol]['precision']['price'])
+
+    def get_amount_precision(self, symbol):
+        return int(self._api.markets[symbol]['precision']['amount'])
+
+    def get_cost_precision(self, symbol):
+        return int(self._api.markets[symbol]['precision']['price'])
 
     @property
     def currencies(self):
@@ -219,7 +219,6 @@ class PandaXT:
 
         return self._api.create_order(symbol, 'limit', 'buy', magic2num(amount or price), magic2num(price))
 
-    @check_symbol
     def sell(self, symbol, amount=None, price=None):
         """
         Create buy order.
