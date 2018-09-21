@@ -34,10 +34,6 @@ class PandaXT:
         api = getattr(ccxt, str(exchange).lower())
         settings = SETTINGS.get('config')
 
-        if exchange in 'binance':
-            api.load_time_difference()
-            api.options['parseOrderToPrecision'] = True
-
         if load_keys:
             load_dotenv()
             self.key = os.environ.get('{}_KEY'.format(exchange.upper()))
@@ -47,6 +43,11 @@ class PandaXT:
                 settings.update(apiKey=self.key, secret=self.secret)
 
         self._api = api(config=settings)
+
+        if exchange in 'binance':
+            api.load_time_difference()
+            api.options['parseOrderToPrecision'] = True
+
         if load_markets:
             self._api.load_markets()
 
