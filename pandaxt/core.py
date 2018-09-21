@@ -404,11 +404,9 @@ class PandaXT:
 
         :param str order_id: a valid order id.
         :param str market: a valid exchange market
-        :return dict: order status.
+        :return str: order status as str. Possible values are: "closed",  "canceled", "open"
         """
-        raw = self._api.fetch_order_status(order_id, market=market)
-        del raw['info']
-        return raw
+        return self._api.fetch_order_status(order_id, market=market)
 
     def get_open_orders(self, symbol):
         """
