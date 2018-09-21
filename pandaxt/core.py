@@ -5,7 +5,7 @@ Core module.
 import os
 from collections import OrderedDict
 
-import ccxt
+import ccxt.binance
 import pandas as pd
 import tulipy
 
@@ -26,13 +26,18 @@ class PandaXT:
         """
         Constructor.
 
-        :param str exchange:
+        :param str exchange: a ccxt lib supported exchange
         :param bool load_markets: if True, "load_markets" method will be executed.
         :param bool load_keys:  if True, exchange API keys will be load from "$HOME/.env" file.
         """
         assert str(exchange).lower() in ccxt.exchanges, '{} not supported'.format(str(exchange))
         api = getattr(ccxt, str(exchange).lower())
         settings = SETTINGS.get('config')
+
+        if exchange in 'binance':
+            api.load_time_difference()
+            api.options['parseOrderToPrecision'] = True
+
         if load_keys:
             load_dotenv()
             self.key = os.environ.get('{}_KEY'.format(exchange.upper()))

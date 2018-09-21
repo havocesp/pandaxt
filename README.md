@@ -4,7 +4,7 @@ A Python 3 "__ccxt__" wrapper over __Pandas__ lib.
 
  - Author: Daniel J. Umpierrez
  - License: MIT
- - Version: 0.1.2
+ - Version: 0.1.3
 
 ## Description
 
@@ -21,6 +21,8 @@ TODO
 
 ## Changelog
 Project changes over versions.
+### 0.1.3
+- "Binance" specific options added for time adjust and auto fit precision or orders.
 
 ### 0.1.2
 - New "create_market_order" method.
