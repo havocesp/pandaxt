@@ -83,3 +83,19 @@ def load_dotenv(env_path=None):
         lines = content.split('\n')
         for ln in [l for l in lines if len(l or '')]:
             os.environ.update(env2dict(ln))
+
+
+def dict2class(d, class_name):
+    """
+
+    :param d:
+    :param class_name:
+    :return:
+    """
+
+    template = """class {}:
+    def __init__(self, *args, **kwargs):
+        pass
+    {}
+    """
+    print(template.format(class_name, ''.join(['    {} = {}()\n'.format(k, type(v).__name__) for k, v in d.items()])))
