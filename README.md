@@ -17,10 +17,24 @@ Python ccxt multi-exchange lib mixed with pandas lib for data handling.
  - [tulipy](https://github.com/cirla/tulipy)
 
 ## Usage
-TODO
+
+### Basic example
+
+```python
+from pandaxt import PandaXT
+api = PandaXT('binance')
+print(api.markets)
+
+```
 
 ## Changelog
+
 Project changes over versions.
+
+### 0.1.4
+- New "model" module.
+- Added dict2class in "utils" module.
+
 ### 0.1.3
 - "Binance" specific options added for time adjust and auto fit precision or orders.
 
