@@ -16,6 +16,8 @@ OHLC_FIELDS = ['date', 'open', 'high', 'low', 'close', 'volume']
 
 SETTINGS = dict(config=dict(timeout=25000, enableRateLimit=True))
 
+__all__ = ['PandaXT']
+
 
 class PandaXT:
     """

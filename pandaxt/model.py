@@ -4,7 +4,7 @@ Model module.
 """
 import collections as col
 
-from pandaxt.core import PandaXT as Exchange
+from pandaxt import PandaXT as Exchange
 
 __all__ = ['Range', 'Limits', 'Symbol', 'Market', 'Currency', 'Precision']
 
