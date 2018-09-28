@@ -6,6 +6,8 @@ import collections as col
 
 from pandaxt.core import PandaXT as Exchange
 
+__all__ = ['Range', 'Limits', 'Symbol', 'Market', 'Currency', 'Precision']
+
 
 class Range:
     """
@@ -129,7 +131,6 @@ class Symbol(str):
     def base(self):
         """
         Base currency.
-        :return:
         """
         return Currency(self.split('/')[0])
 
@@ -137,17 +138,8 @@ class Symbol(str):
     def quote(self):
         """
         Quote currency.
-        :return:
         """
         return Currency(self.split('/')[1])
-
-    @property
-    def currencies(self):
-        sp = self.split('/')
-        if len(sp[1:]):
-            return Currency(sp[0]), Currency(sp[1])
-        else:
-            return Currency(sp[0]), Currency('BTC')
 
     def __str__(self):
         return '{}/{}'.format(*self.currencies)
@@ -164,27 +156,6 @@ class Symbol(str):
     @property
     def parts(self):
         return self.base, self.quote
-
-
-# class Symbol(str):
-#     def __init__(self, symbol=None):
-#         self.id = str(symbol or str()).upper()
-#         if len(self.id):
-#             assert '/' in symbol, 'Invalid symbol: {}'.format(symbol)
-#         super().__init__(o=symbol)
-#
-#     @property
-#     def base(self):
-#         """
-#         Base currency.
-#         :return:
-#         """
-#         return Currency(self.split('/')[0]) if '/' in self else Currency()
-#
-#     @property
-#     def quote(self):
-#         return Currency(self.split('/')[1]) if '/' in self else Currency()
-#
 
 
 class Precision:
