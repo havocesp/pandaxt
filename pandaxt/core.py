@@ -47,7 +47,8 @@ class PandaXT:
         if exchange in 'binance':
             self._api.load_time_difference()
             self._api.options['parseOrderToPrecision'] = True
-
+        elif exchange in 'cryptopia':
+            self._api.fetch_ohlcv = ccxt.Exchange().fetch_ohlcv
         if load_markets:
             self._api.load_markets()
 
@@ -81,7 +82,8 @@ class PandaXT:
         Return price rounded to symbol precision exchange specifications.
 
         :param str symbol: a valid exchange symbol.
-        :param float price: price to be rounded.
+        :param price: price to be rounded.
+        :type price: int or float or str
         :return float: price rounded to specific symbol exchange specifications.
         """
         return float(self._api.price_to_precision(symbol, price))
@@ -138,8 +140,10 @@ class PandaXT:
 
         :return dict: all exchange markets metadata.
         """
-        market_data = self._api.load_markets()
-        return {k: v for k, v in market_data.items() if k.split('/')[1].rstrip('T') in ['BTC', 'USD', 'EUR']}
+        base_markets = ['BTC', 'USD', 'EUR']
+        return {k: Market(**{x: y for x, y in v.items() if y and x not in ['info']})
+                for k, v in self._api.load_markets().items()
+                if k.split('/')[1].rstrip('T') in base_markets}
 
     def get_ohlc(self, symbol, timeframe='15m', limit=25):
         symbol = str(symbol).upper()
@@ -444,3 +448,16 @@ class PandaXT:
                     else:
                         self._api.cancel_order(pending_orders['id'], symbol)
                 return canceled_orders
+
+
+if __name__ == '__main__':
+    from model import Market, Symbol
+
+    s = Symbol('ETN/BTC')
+    # print(s)
+    api = PandaXT('cryptopia')
+    markets = api.markets
+    m = markets.get(s)  # type: Market
+    # m = Market(**api.markets[])
+    print(m.limits)
+    # dict2class(['limits']['cost'], 'cost')
