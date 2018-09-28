@@ -9,7 +9,7 @@ import ccxt.binance
 import pandas as pd
 import tulipy
 
-import pandaxt.model as model
+from pandaxt.model import Currency
 from pandaxt.utils import load_dotenv, dict_none_drop, magic2num
 
 OHLC_FIELDS = ['date', 'open', 'high', 'low', 'close', 'volume']
@@ -125,7 +125,7 @@ class PandaXT:
 
         :return list: all exchange supported currencies as list type (sorted alphabetically).
         """
-        return list(sorted(list(set([model.Currency(s.split('/')[0]) for s in self.symbols]))))
+        return list(sorted(list(set([Currency(s.split('/')[0]) for s in self.symbols]))))
 
     @property
     def symbols(self):
@@ -134,7 +134,7 @@ class PandaXT:
 
         :return list: all exchange supported symbols as list type (sorted alphabetically).
         """
-        return list(sorted([model.Symbol(s) for s in self.markets.keys()]))
+        return list(sorted([Symbol(s) for s in self.markets.keys()]))
 
     @property
     def markets(self):
@@ -144,7 +144,7 @@ class PandaXT:
         :return dict: all exchange markets metadata.
         """
         base_markets = ['BTC', 'USD', 'EUR']
-        return {k: model.Market(**{x: y for x, y in v.items() if y and x not in ['info']})
+        return {k: Market(**{x: y for x, y in v.items() if y and x not in ['info']})
                 for k, v in self._api.load_markets().items()
                 if k.split('/')[1].rstrip('T') in base_markets}
 
@@ -188,7 +188,7 @@ class PandaXT:
         :param symbols: list of valid exchange symbols.
         :return dict: dict type with tickers data.
         """
-        symbols = [model.Symbol(str(s).upper()) for s in symbols if s in self.symbols]
+        symbols = [Symbol(str(s).upper()) for s in symbols if s in self.symbols]
         assert len(symbols), 'There is some invalid symbol/s in {}'.format(symbols)
 
         if len(symbols) > 1:
