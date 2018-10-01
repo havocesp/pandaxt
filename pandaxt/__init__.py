@@ -2,17 +2,17 @@
 """
 A Python 3 "ccxt" wrapper over "Pandas" lib.
 """
+from pandaxt.core import PandaXT, Market, Symbol, Limits, Precision, Range, Currency
+
 __name__ = 'PandaXT'
 __package__ = 'pandaxt'
 __author__ = 'Daniel J. Umpierrez'
 __license__ = 'MIT'
 __version__ = '0.1.4'
-__description__ = 'A Python 3 "ccxt" wrapper over "Pandas" lib.'
+__description__ = __doc__
 __site__ = 'https://github.com/havocesp/{}'.format(__package__)
 __email__ = 'umpierrez@pm.me'
-__keywords__ = ['altcoins', 'altcoin', 'exchange']
-
-from pandaxt.core import PandaXT
+__keywords__ = ['altcoins', 'altcoin', 'exchange', 'pandas', 'bitcoin', 'trading']
 
 __all__ = ['__description__', '__author__', '__license__', '__version__', '__package__', '__name__', '__site__',
-           '__email__', '__keywords__', 'PandaXT']
+           '__email__', '__keywords__', 'PandaXT', 'Market', 'Symbol', 'Limits', 'Precision', 'Range', 'Currency']
