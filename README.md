@@ -3,8 +3,8 @@
 A Python 3 "__ccxt__" wrapper over __Pandas__ lib.
 
  - Author: Daniel J. Umpierrez
- - License: MIT
- - Version: 0.1.4
+ - License: UNLICENSE
+ - Version: 0.1.5
 
 ## Description
 
@@ -12,9 +12,10 @@ Python ccxt multi-exchange lib mixed with pandas lib for data handling.
 
 ## Requirements
 
- - [ccxt](https://github.com/ccxt/ccxt)
- - [pandas](https://github.com/pandas-dev/pandas)
- - [tulipy](https://github.com/cirla/tulipy)
+ - [ccxt](https://pypi.org/project/ccxt)
+ - [pandas](https://pypi.org/project/pandas)
+ - [tulipy](https://pypi.org/project/tulipy/)
+ - [cryptocmpy](https://github.com/havocesp/cryptocmpy)
 
 ## Usage
 
@@ -31,12 +32,15 @@ print(api.markets)
 
 Project changes over versions.
 
+### 0.1.5
+-
+
 ### 0.1.4
 - New "model" module.
 - Added dict2class in "utils" module.
 
 ### 0.1.3
-- "Binance" specific options added for time adjust and auto fit precision or orders.
+- "Binance" specific options added for time adjust and auto fit precision or orders.md.
 
 ### 0.1.2
 - New "create_market_order" method.

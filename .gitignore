@@ -1,5 +1,10 @@
-.idea
-.vscode
-pandaxt/descriptions
-tests
-pandaxt/__pycache__
+.idea/
+pandaxt/descriptions/
+tests/
+**/__pycache__/
+pandaxt.egg-info/
+data/
+doc/tickers.md
+
+doc/ticker.json
+scripts/

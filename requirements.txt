@@ -1,3 +1,7 @@
+requests
 pandas
 ccxt
+cython
 tulipy
+cctf
+diskcache
