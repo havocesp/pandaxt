@@ -4,7 +4,7 @@ A Python 3 "__ccxt__" wrapper over __Pandas__ lib.
 
  - Author: Daniel J. Umpierrez
  - License: UNLICENSE
- - Version: 0.1.5
+ - Version: 0.1.7
 
 ## Description
 
@@ -15,7 +15,6 @@ Python ccxt multi-exchange lib mixed with pandas lib for data handling.
  - [ccxt](https://pypi.org/project/ccxt)
  - [pandas](https://pypi.org/project/pandas)
  - [tulipy](https://pypi.org/project/tulipy/)
- - [cryptocmpy](https://github.com/havocesp/cryptocmpy)
 
 ## Usage
 
@@ -25,15 +24,21 @@ Python ccxt multi-exchange lib mixed with pandas lib for data handling.
 from pandaxt import PandaXT
 api = PandaXT('binance')
 print(api.markets)
-
 ```
 
 ## Changelog
 
 Project changes over versions.
 
+### 0.1.7
+ - Fixed "currencies" method and recursion limit bugs.
+
+### 0.1.6
+- README requirements fixed
+- Removed 'PandaXT._fetch_ohlcv' method.
+
 ### 0.1.5
--
+- Many features added and many errors fixed
 
 ### 0.1.4
 - New "model" module.
