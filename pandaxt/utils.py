@@ -7,54 +7,63 @@ import pathlib
 import typing as tp
 from itertools import repeat, starmap
 
-import pandas as pd
 import requests
 
 
 def error(text=None):
-    print(' - [ERROR] {}'.format(text))
+    """Print a formatted error text.
+
+    :param text: error message.
+    :type text: tp.Text
+    """
+    print(f' - [ERROR] {text}')
 
 
 def repeatfunc(func, times=None, *args):
     """Repeat calls to func with specified arguments.
 
     Example:  repeatfunc(random.random)
+
+    :param tp.Callable func: function to be called
+    :param int times: amount of call times
     """
     if times is None:
         return starmap(func, repeat(args))
     return starmap(func, repeat(args, times))
 
 
-def get_timeframe(d, tf):
-    """Get most close value from array.
-
-    >>> tf = {'1m': '1m', '3m': '3m', '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '2h': '2h', '4h': '4h', \
-    '6h': '6h', '8h': '8h', '12h': '12h', '1d': '1d', '3d': '3d', '1w': '1w', '1M': '1M'}
-
-    >>> get_timeframe(tf.values(), '10m')
-    '15m'
-
-    :param tp.Dict d: array with data where closest value will be search
-    :param str tf: value to find.
-    """
-    unit = d[-1:]
-    value = int(d[:-1])
-    d = [e[-1] for e in d.values() if str().endswith(unit) == unit]
-
-    by_unit = pd.np.asarray(d)
-    idx = (pd.np.abs(by_unit - value)).argmin()
-    return [idx]
+# def get_timeframe(d, tf):
+#     """Get most close value from array.
+#
+#     >>> tf = {'1m': '1m', '3m': '3m', '5m': '5m', '15m': '15m', '30m': '30m', '1h': '1h', '2h': '2h', '4h': '4h', \
+#     '6h': '6h', '8h': '8h', '12h': '12h', '1d': '1d', '3d': '3d', '1w': '1w', '1M': '1M'}
+#
+#     >>> get_timeframe(tf.values(), '10m')
+#     '15m'
+#
+#     :param tp.Dict d: array with data where closest value will be search
+#     :param str tf: value to find.
+#     """
+#     unit = d[-1:]
+#     value = int(d[:-1])
+#     d = [e[-1] for e in d.values() if str().endswith(unit) == unit]
+#
+#     by_unit = pd.np.asarray(d)
+#     idx = (pd.np.abs(by_unit - value)).argmin()
+#     return [idx]
 
 
 def whoami():
-    """Return function name where this function is called."""
+    """Return function name where this function is called.
+
+    :return str: caller function name.
+    """
     frame = inspect.currentframe()
     return inspect.getframeinfo(frame).function
 
 
 def drop_keys(it, *keys):
-    """
-    Remove specified "keys" from any iterable type (tuple, list, dict, ...).
+    """Remove specified "keys" from any iterable type (tuple, list, dict, ...).
 
     :param tp.Iterable it: iterable containing dict type instances (or similar)
     :param tp.List[tp.AnyStr] keys: keys to be dropped.
@@ -75,8 +84,7 @@ def drop_keys(it, *keys):
 
 
 def flt(value, p=None, as_str=False):
-    """
-    Float builtin wrapper for precision param initialization.
+    """Float builtin wrapper for precision param initialization.
 
     >>> flt(4.13, 5, False)
     4.13
@@ -110,8 +118,7 @@ def flt(value, p=None, as_str=False):
 
 
 def infer_precision(number):
-    """
-    Infer precision base on number size.
+    """Infer precision base on number size.
 
     >>> infer_precision(0.343)
     3
@@ -124,10 +131,12 @@ def infer_precision(number):
     :return int: precision as int (number of decimals recommended)
     """
     number = number or 0.0
+
     try:
         number = float(number)
     except ValueError:
         return number
+
     if number is not None and isinstance(number, float):
         if number < 0.000001:
             return 10
@@ -146,8 +155,7 @@ def infer_precision(number):
 
 
 def num2str(n, precision=None):
-    """
-    Numeric type infer and parser
+    """Numeric type infer and parser
 
     Accept any Iterable (dict, list, tuple, set, ...) or built-in data types int, float, str, ... and try  to
     convert it a number data type (int, float)
@@ -156,7 +164,7 @@ def num2str(n, precision=None):
     [10.03, 10.32, 11.39, 13]
 
     :param n: number
-    :type n: Number or tp.Iterable
+    :type n: float or int or Iterable
     :param int precision:
     :return tp.Iterable:
     """
@@ -288,25 +296,22 @@ def load_dotenv(env_path=None):
 
 
 # noinspection PyUnusedFunction
-def dict2class(d, class_name):
-    """
-    Convert a dict instance to python code as a str class.
-    :param d:
-    :param class_name:
-    :return:
-    """
+def dict2class(d, class_name) -> tp.NoReturn:
+    """Convert a dict instance to python code as a str class.
 
-    template = """class {}:
+    :param dict d: dict used to build the new class.
+    :param str class_name: the generated class name
+    """
+    fields = [f'    {k} = {type(v).__name__}()\n' for k, v in d.items()]
+    print(f"""class {class_name}:
     def __init__(self, *args, **kwargs):
         pass
-    {}
-    """
-    print(template.format(class_name, ''.join(['    {} = {}()\n'.format(k, type(v).__name__) for k, v in d.items()])))
+    {''.join(fields)}
+    """)
 
 
 def get_tor_session(port=9050):
-    """
-    Get a "Session" instance to socks5 tor proxy.
+    """Get a "Session" instance to socks5 tor proxy.
 
     :param int port: the tor service port (default 9050)
     :return requests.Session: a requests Session like instance ready for tor network connection.
