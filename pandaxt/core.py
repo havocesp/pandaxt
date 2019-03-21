@@ -1,36 +1,40 @@
 # -*- coding:utf-8 -*-
 """Core module."""
-import collections
 import functools
 import os
 import pathlib
+import sys
 import warnings
-from collections import OrderedDict, UserDict, Iterable
+from collections import OrderedDict
+from logging import getLogger
+from typing import Iterable, Text, Dict, List
 
 import ccxt
 import pandas as pd
 import tulipy
-from cctf import Symbol, Tickers, Currency, Balance, Wallet, Markets, Market, Ticker
+from cctf import Symbol, Tickers, Currency, Balance, Wallet, Markets, Market, Ticker, Limit
 from diskcache import Cache
 from pandas.core.common import SettingWithCopyWarning
-# from cctf import Market, Symbol, Currency, Ticker, Markets, Wallet, Tickers
-from pandaxt.decorators import retry
-from pandaxt.utils import load_dotenv, magic2num, get_tor_session, error  # , find_nearest
+
+from pandaxt.exceptions import TimeframeError, SymbolError, CurrencyError, SideError
+from pandaxt.utils import load_dotenv, magic2num
 
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
 
-# log = Logger('PandaXT', 'INFO')
-_COLORS = ("red", "green", "yellow", "blue", "magenta", "cyan")
-
+# noinspection PyUnusedName
 pd.options.display.precision = 8
+# noinspection PyUnusedName
 pd.options.display.max_colwidth = -1
-pd.options.display.float_format = lambda n: '{:.8f}'.format(n).rstrip('0.') if n < 0.0 else '{:.8f}'.format(n)
+# noinspection PyUnusedName
+pd.options.display.float_format = lambda n: f'{n:.8f}'.rstrip('0.') if n < 0.0 else f'{n:.8f}'
 
 _OHLC_FIELDS = ['date', 'open', 'high', 'low', 'close', 'volume']
-_USER_DATA_DIR = pathlib.Path.home().joinpath('.local', 'share')
-_SETTINGS = dict(config=dict(timeout=25000, enableRateLimit=True, fetchTickersErrors=False))
+_DATA_DIR = pathlib.Path.home().joinpath('.local', 'share')
+_SETTINGS = dict(timeout=25000, enableRateLimit=True, fetchTickersErrors=False)
 
 __all__ = ['PandaXT']
+
+log = getLogger('PandaxT:core')
 
 
 def _get_version(exchange):
@@ -48,16 +52,17 @@ def _get_version(exchange):
     :return: the last API id for supplied exchange.
     :rtype: str or None
     """
-    return [ex for ex in ccxt.exchanges if exchange == ex.strip(' _12345')]
+    ex = str(exchange).lower().strip(' _12345')
+    result = [e for e in ccxt.exchanges if ex in e]
+    return result[-1] if len(result) > 0 else None
 
 
 # noinspection PyUnusedFunction,PySameParameterValue
 class PandaXT:
     """A "ccxt" exchanges wrapper class over Pandas lib."""
 
-    def __init__(self, exchange, load_keys=True, tor=False, user_agent=None):
-        """
-        Constructor.
+    def __init__(self, exchange, load_keys=True, user_agent=None):
+        """Constructor.
 
         >>> markets = PandaXT('binance').markets
         >>> isinstance(markets, Markets)
@@ -75,27 +80,17 @@ class PandaXT:
         :param user_agent:  if True, exchange API keys will be load from "$HOME/.env" file.
         :type user_agent: Bool or Text
         """
+        # for cache purposes
+        self._basemarkets = None
+        self._currencies = None
+        self._symbols = None
+        self._markets = None
 
-        self._symbols = list()
-        self.basemarkets = list()
-        self.currencies = list()
-
-        exchange = str(exchange).lower()
-
-        if exchange not in ccxt.exchanges:
-            raise ValueError('{} not supported'.format(exchange))
-
-        if '{}2'.format(exchange) in ccxt.exchanges:
-            exchange = '{}2'.format(exchange)
-        elif '{}3'.format(exchange) in ccxt.exchanges:
-            exchange = '{}3'.format(exchange)
-
-        self._cache_dir = _USER_DATA_DIR.joinpath('pandaxt', exchange.rstrip('23'))
-        self._cache_dir.mkdir(exist_ok=True, parents=True)
-        self._cache = Cache(str(self._cache_dir))
+        exchange = _get_version(exchange)
+        assert exchange is not None, f'"{exchange}" not supported'
 
         api = getattr(ccxt, exchange)
-        settings = _SETTINGS.get('config')
+        settings = _SETTINGS
 
         if user_agent is not None:
             if isinstance(user_agent, bool) and user_agent is True:
@@ -103,37 +98,43 @@ class PandaXT:
             elif isinstance(user_agent, str) and len(user_agent):
                 settings.update(userAgent=user_agent)
 
-        if tor:
-            settings.update(session=get_tor_session())
-
         if load_keys:
             load_dotenv()
-            self.key = os.environ.get('{}_KEY'.format(exchange.upper().strip('_012345')))
-            self.secret = os.environ.get('{}_SECRET'.format(exchange.upper().strip('_012345')))
+            field_name = exchange.upper().strip(' _012345')
+            api_key = os.environ.get(f'{field_name}_KEY')
+            secret = os.environ.get(f'{field_name}_SECRET')
 
-            if self.key and self.secret:
-                settings.update(apiKey=self.key, secret=self.secret)
+            if api_key and secret:
+                settings.update(apiKey=api_key, secret=secret)
 
-        self._api = api(config=settings)
+        self._api = api(settings)
 
         if exchange in 'binance':
             # noinspection PyUnresolvedReferences
             self._api.load_time_difference()
             self._api.options['parseOrderToPrecision'] = True
 
-    @classmethod
-    def is_supported(cls, exchange):
-        """Exchange support checker.
+    def _load_markets(self) -> Markets:
+        """Markets metadata cache handler.
 
-        >>> PandaXT.is_supported('binance')
-        True
-
-        :param str exchange: exchange name to be checked.
+        :return: markets metadata as "Markets" instance.
         """
-        if isinstance(exchange or 0, str) and len(exchange) > 0:
-            return any([str(exchange) == e for e in ccxt.exchanges])
+
+        if self._markets is not None:
+            data = self._markets
         else:
-            return False
+            self._cache_dir = _DATA_DIR / 'pandaxt' / self.id
+            self._cache_dir.mkdir(exist_ok=True, parents=True)
+            self._cache = Cache(str(self._cache_dir))
+            data = self._cache.get('markets', {})
+            if len(data) == 0:
+                data = self._api.load_markets()
+                data = {k: {x: y for x, y in v.items() if y}
+                        for k, v in data.items()
+                        if v}
+                self._cache.set('markets', data, (60.0 ** 2.0) * 6.0)
+        return Markets(**data)
+
     @property
     def id(self):
         """Exchange unique reference (also know as ID).
@@ -145,9 +146,8 @@ class PandaXT:
         """
         return self._api.id
 
-
     @property
-    def timeframes(self):
+    def timeframes(self) -> List[Text]:
         """Return valid exchange timeframes as list.
 
         >>> '15m' in PandaXT('binance').timeframes
@@ -160,7 +160,7 @@ class PandaXT:
         return list(od.keys())
 
     @property
-    def delisted(self):
+    def delisted(self) -> List[Symbol]:
         """Returns delisted symbols (active -> False)
 
         >>> binance = PandaXT('binance')
@@ -170,14 +170,12 @@ class PandaXT:
 
         :return List: return delisted symbols
         """
-        return [v for k, v in self.markets.items() if hasattr(v, 'active') and not v.active]
+        return [k
+                for k, v in self.markets.items()
+                if hasattr(v, 'active') and not v.active]
 
     @property
-    def symbols(self):
-        return [self.altname(s) for s in self._api.load_markets()]
-
-    @property
-    def name(self):
+    def name(self) -> Text:
         """Exchange long name.
 
         >>> PandaXT('binance').name
@@ -188,7 +186,36 @@ class PandaXT:
         return getattr(self._api, 'name')
 
     @property
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
+    def symbols(self) -> List[Symbol]:
+        """Get all supported symbols by exchange as "Symbol" list."""
+        if self._symbols is None:
+            self._symbols = sorted(list(self.markets.keys()))
+        return self._symbols
+
+    @property
+    def base_markets(self) -> List[Currency]:
+        """Get exchange base markets currencies as "Currency" list."""
+        if self._basemarkets is None:
+            self._basemarkets = sorted(list({s.quote for s in self.symbols}))
+        return self._basemarkets
+
+    @property
+    def currencies(self) -> List[Currency]:
+        """Get supported currencies by exchange as "Currency" list.
+
+        >>> currencies = PandaXT('binance').currencies
+        >>> len(currencies) > 0
+        True
+
+        """
+        # Initialize markets, symbols, currencies and basemarkets
+        if self._currencies is None:
+            delisted = {d.base for d in self.delisted}
+            self._currencies = sorted([Currency(c) for c in self._api.currencies if c not in delisted])
+
+        return self._currencies
+
+    @property
     def markets(self):
         """Get all exchange markets metadata.
 
@@ -197,122 +224,101 @@ class PandaXT:
 
         :return Dict: all exchange markets metadata.
         """
-        data = self._cache.get('markets')
-        if data is None:
-            raw = self._api.load_markets()
-            raw = {k: {x: y for x, y in v.items() if y}
-                   for k, v in raw.items()
-                   if v}
-            data = Markets(**raw)
-            self._cache.set('markets', data, (60.0 ** 2.0) * 6.0)
-        if not len(self._symbols):
-            self._symbols = [self.altname(s) for s in sorted(data)]
-            self.basemarkets = list({s.quote for s in self._symbols})
-            self.currencies = list({s.base for s in self._symbols})
-        return Markets(**data) if not isinstance(data, Markets) else data
-
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def _fetch_ohlcv(self, symbol, timeframe='15m', since=None, limit=None, params=None):
-        """See `Exchange` fetch_ohlcv from ccxt lib.
-
-        :param symbol:
-        :param timeframe:
-        :param since:
-        :param limit:
-        :param params:
-        :type symbol: Text or Symbol
-        :type timeframe: Text
-        :type limit: int
-        :type params: Dict
-        :return:
-        """
-        if not self._api.has['fetchTrades']:
-            self._api.raise_error(ccxt.NotSupported, details='fetch_ohlcv() not implemented yet')
-
-        timeframe2seconds = self._api.parse_timeframe(timeframe) * limit * 2
-        trades = self._api.fetch_trades(symbol, since=timeframe2seconds * 1000, params=params or dict())
-
-        return self._api.build_ohlcv(trades, timeframe, since)
+        return self._load_markets()
 
     def get_timeframe(self, timeframe):
-        # timeframe = find_nearest(self._api.timeframes.values(), value)
-        if isinstance(timeframe, int):
-            timeframe = '{}m'.format(timeframe)
-        # elif str(timeframe)[-1] in list('mhwMd'):
-        return str(timeframe) in self.timeframes
+        """Timeframe sanitizer.
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def get_ohlc(self, symbol, timeframe='5m', limit=25):
+        >>> PandaXT('binance').get_timeframe(15)
+        '15m'
+
+        :param timeframe: timeframe to sanitize.
+        :type timeframe: str or int
+        :return str: sanitize timeframe.
         """
-        Get OHLC data for specific symbol as pandas DataFrame type.
+        timeframe = str(timeframe)
+        if timeframe.isdigit() or not timeframe[-1].isalpha():
+            timeframe = f'{timeframe}m'
+        if timeframe not in self.timeframes:
+            raise TimeframeError(timeframe, exchange=self.name)
+        else:
+            return timeframe
+
+    def get_ohlc(self, symbol, timeframe='15m', limit=25):
+        """Get OHLC data for specific symbol as pandas DataFrame type.
 
         :param Text symbol: symbol name use at ohlc data request.
         :param Text timeframe: an exchange supported timeframe.
         :param int limit: max rows limit.
-        :return pd.DataFrame: DataFrame with timestamps a index and columns: open, high, low, close, volume, qvolume
+        :return pd.DataFrame: DataFrame with 'open', 'high', 'low', 'close', 'volume', 'qvolume' columns and 'date' as index.
         """
 
-        if not Symbol(symbol) in self.symbols:
-            raise ValueError('{} not supported'.format(symbol))
+        if Symbol(symbol) not in self.symbols:
+            # print(symbol, symbol in self.symbols, len(self.symbols))
+            raise SymbolError(symbol, exchange=self.name)
 
-        if self.id in 'cryptopia':
-            data = self._fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
-        else:
-            data = self._api.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        data = self._api.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         df = pd.DataFrame(data, columns=_OHLC_FIELDS)
         df['qvolume'] = df['volume'] * df['close']
         df.index = pd.to_datetime(df.pop('date') // 1000, unit='s')
         df.name = 'date'
         return df
 
+    def get_currency(self, currency):
+        """Currency name sanitizer."""
+        if currency in self._api.commonCurrencies:
+            currency = self._api.commonCurrencies.get(currency)
+        if str(currency or '') not in self.currencies:
+            log.warning(f'Currency {str(currency)} is not supported by exchange.')
+        return Currency(currency)
+
     def altname(self, name):
         """Retrieve alternative currency or symbol name used in a specific exchange.
 
-        >>> yoyo_btc = PandaXT('binance').altname('YOYO/BTC')
-        >>> yoyo_btc
-        'YOYOW/BTC'
-        >>> yoyo_btc.price2precision(0.000140308786, to_str=False)
-        0.00014031
+        >>> PandaXT('binance').altname('YOYOW')
+        'YOYOW'
+        >>> PandaXT('binance').altname('YOYOW/BTC')
+        {Symbol} YOYOW/BTC
+        >>> PandaXT('binance').altname('YOYOW/BTC')
+        {Symbol} YOYOW/BTC
 
         :param name: currency or symbol name to check for alternative name.
         :type name: Text or Currency or Symbol
         :return: currency alternative name as Currency or Symbol instance.
         :rtype: Currency or Symbol
         """
-        ccc = self._api.common_currency_code
-        if '/' in str(name):
-            s = Symbol(name)
-            s = Symbol(ccc(s.base), s.quote)
+        symbol = str(name).upper()
+        if '/' in symbol:
+            base, quote = symbol.split('/')
+            assert quote in self.base_markets, f'{quote} is not a valid base market.'
+            base = self.get_currency(base)
+            s = self.get_currency(base) + Currency(quote)
             s.price2precision = functools.partial(self.price2precision, s)
             s.cost2precision = functools.partial(self.cost2precision, s)
             s.amount2precision = functools.partial(self.amount2precision, s)
             return s
         else:
-            c = ccc(str(name))
-            if c == 'BSV':
-                c = 'BCHSV'
-            return Currency(c)
+            return self.get_currency(symbol)
 
     def cost2precision(self, symbol, cost, to_str=True):
-        """
-        Return cost rounded to symbol precision exchange specifications.
+        """Return cost rounded to symbol precision exchange specifications.
 
         :param symbol: a valid exchange symbol.
         :type symbol: Text or Symbol
         :param float cost: cost to be rounded.
+        :param Bool to_str: True to return result as str, otherwise result will be returned as float
         :return float: cost rounded to specific symbol exchange specifications.
         """
         t = str if to_str else float
         return t(self._api.cost_to_precision(symbol, cost))
 
     def amount2precision(self, symbol, amount, to_str=True):
-        """
-        Return amount rounded to symbol precision exchange specifications.
+        """Return amount rounded to symbol precision exchange specifications.
 
         :param symbol: a valid exchange symbol.
         :type symbol: Text or Symbol
         :param amount: amount to be rounded.
-        :param bool to_str: True to return result as str, otherwise result will be returned as float
+        :param Bool to_str: True to return result as str, otherwise result will be returned as float
         :return: amount rounded to specific symbol exchange specifications.
         :rtype: float or Text
         """
@@ -320,8 +326,7 @@ class PandaXT:
         return t(self._api.amount_to_precision(symbol, amount))
 
     def price2precision(self, symbol, price, to_str=True):
-        """
-        Return price rounded to symbol precision exchange specifications.
+        """Return price rounded to symbol precision exchange specifications.
 
         :param symbol: a valid exchange symbol.
         :type symbol: Text or Symbol
@@ -334,7 +339,6 @@ class PandaXT:
         template = '{:.@f}'.replace('@', str(m.precision.price))
         return t(template.format(float(price)))
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
     def get_orderbook(self, symbol, limit=5):
         """Get order book data for a symbol.
 
@@ -356,7 +360,6 @@ class PandaXT:
         df = pd.DataFrame(data, columns=columns)
         return df.round({'ask': 8, 'bid': 8, 'ask_vol': 0, 'bid_vol': 0})
 
-    # @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
     def get_tickers(self, symbols, sorted_by=None):
         """Get tickers dict with symbol name as keys for all symbols specified as positional args.
 
@@ -366,7 +369,7 @@ class PandaXT:
         True
 
         :param symbols: list of valid exchange symbols.
-        :type symbols: Iterable
+        :type symbols: Sized
         :param sorted_by: a valid ticker field like percentage, last, ask, bid, quoteVolume, ...
         :return: Ticker or Tickers instance with returned data.
         :rtype: Ticker or Tickers
@@ -376,35 +379,30 @@ class PandaXT:
         if isinstance(symbols, Iterable) and len(symbols):
             symbols = [symbols] if isinstance(symbols, str) else list(symbols)
 
-            for s in map(str, symbols):
+            for s in map(self.altname, symbols):
                 if s not in self.markets:
-                    print('Symbol {} is not listed in {} exchange.'.format(s or 'NULL', self.name))
+                    log.debug(f'Symbol {s or "NULL"} is not listed in {self.name} exchange.')
+                    continue
             try:
                 raw = self._api.fetch_tickers(symbols)
-                # if hitbtc in self.id:
-                #     raw['ask'] = raw['info']['ask']
-                #     raw['bid'] = raw['info']['bid']
-                #     raw['last'] = float((raw['ask'] + raw['bid'])/2.0)
                 if str(sorted_by) in list(raw.values())[0].keys():
                     raw = OrderedDict(sorted(raw.items(), key=lambda k: k[1][sorted_by], reverse=True))
                 result = Tickers(**raw)
                 result = result[symbols[0]] if len(symbols) == 1 else result
-            except ccxt.ExchangeError as err:
+            except ExchangeError as err:
                 print(str(err))
 
         return result
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def get_indicators(self, indicators, symbol, timeframe='15m', limit=25, **kwargs):
+    def get_indicators(self, indicators, symbol,
+                       timeframe='15m', limit=25, **kwargs):
         """Get technical indicators value for a symbol.
 
-        Indicators params should be supplied
-
         :param Dict indicators: indicators and their params as dict (params ara mandatory, there is no default values).
-        :param Text symbol: a valid exchange symbol.
+        :param symbol: a valid exchange symbol.
+        :type symbol: Text or Symbol
         :param Text timeframe: an exchange valid timeframe (default 15m).
         :param int limit: a valid exchange limit for returned rows (check exchange official API)
-        :param indicators_params: dict instance containing indicator / params key pair where params (if any) will be
         supplied as a param / value dict instance also. Example: "{'roc': {'period': 9}}"
         :param kwargs: if "ohlc" is set with OHLC data (DataFrame) it will be use for value calculations.
         :return Dict: dict type with indicators name/value pairs.
@@ -412,10 +410,11 @@ class PandaXT:
         indicator_names = indicators.keys()
         indicators = {k.lower(): v for k, v in indicators.items()}
         symbol = Symbol(symbol)
-        result = OrderedDict.fromkeys(indicators.keys())
-        supported_ti = [a for a in dir(tulipy.lib) if a[0].islower()]
+        return_value = OrderedDict.fromkeys(indicators.keys())
+        supported_ti = [_a for _a in dir(tulipy.lib) if _a[0].islower()]
 
-        functions = OrderedDict({i: getattr(tulipy, i) for i in indicators if i in supported_ti})
+        functions = OrderedDict({i: getattr(tulipy, i)
+                                 for i in indicators if i in supported_ti})
 
         data = kwargs.get('ohlc', self.get_ohlc(symbol, timeframe=timeframe, limit=limit))
 
@@ -425,7 +424,9 @@ class PandaXT:
             if len(fn.options):
                 options = [opt.replace(' ', '_') for opt in fn.options]
                 indicator_params = indicators.get(n)
-                indicator_params = {k: v for k, v in indicator_params.items() if k in options}
+                indicator_params = {k: v
+                                    for k, v in indicator_params.items()
+                                    if k in options}
 
             try:
                 raw = fn(*data[inputs].T.values, **indicator_params)
@@ -434,38 +435,27 @@ class PandaXT:
                     raw = raw * 100.0
                 sr = pd.Series(raw, name=n.upper())
                 sr.index = di.values[-len(sr):]
-                result[n] = sr.copy(True)
+                return_value[n] = sr.copy(True)
 
             except tulipy.lib.InvalidOptionError as err:
                 print(str(err))
 
-        return {k: result[k.lower()] for k in indicator_names}
+        return dict(ohlc=data, **{k: return_value[k.lower()] for k in indicator_names})
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def create_market_order(self, symbol, side):
+    def create_market_order(self, symbol, side, amount=None):
         """Create a market order order.
 
-        :param Text symbol: a valid exchange symbol.
+        :param symbol: a valid exchange symbol.
+        :type symbol: Text or Symbol
         :param Text side: accepted values: "buy", "sell"
+        :param float amount: amount used in order creation.
         :return Dict: order creation result data as dict.
         """
-        symbol = Symbol(symbol)
-        side = str(side).lower()
-
-        if symbol not in self._symbols:
-            error('Invalid symbol: {}'.format(symbol))
-
-        if side not in ['buy', 'sell']:
-            error('Invalid side: {} (accepted values: "buy", "sell")'.format(side))
-
-        coin = quote if side in 'buy' else base
-        free = self.get_balance(coin, 'free') or dict()
-
-        return self._api.create_order(symbol, type='market', side=side, amount=magic2num(amount))
+        return self.create_order(
+            symbol, side=side, order_type='market', amount=amount)
 
     def buy(self, symbol, amount=None, price=None):
-        """
-        Create buy order.
+        """Create buy order.
 
         :param symbol: a valid exchange symbol.
         :type symbol: str or Symbol
@@ -473,12 +463,12 @@ class PandaXT:
         :param float price: buy price or None to auto-fill
         :return Dict: order creation result data as dict.
         """
-        return self.create_order(symbol, order_type='limit', side='buy', amount=amount, price=price)
+        return self.create_order(
+            symbol, order_type='limit', side='buy', amount=amount, price=price)
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def create_order(self, symbol, side, order_type=None, amount=None, price=None):
-        """
-        Create a new order.
+    def create_order(self, symbol, side, order_type=None,
+                     amount=None, price=None):
+        """Create a new order.
 
         :param symbol: symbol to be use for order creation.
         :type symbol: str or Symbol
@@ -486,30 +476,43 @@ class PandaXT:
         :param Text order_type: order type (default 'limit')
         :param float amount: amount used in order creation.
         :param float price: price used in order creation.
-        :return Dict:
+        :return Dict: order result info as dict.
         """
         symbol = Symbol(symbol)
-        assert symbol in self._symbols, 'Invalid symbol: {}'.format(symbol)
-        base, quote = symbol.parts
-        if side in 'buy':
-            currency = quote
-            balance_field = 'free'
-            ticker_field = 'ask'
-        else:
-            balance_field = 'total'
-            ticker_field = 'bid'
-            currency = base
-        amount = magic2num(amount or self.get_balances(balance_field).get(currency, 0.0))
+        response = dict()
+
+        if symbol not in self.symbols:
+            raise SymbolError(f'Invalid symbol: {symbol}')
+
+        if side not in ['buy', 'sell']:
+            raise SideError(side)
+
+        currency = symbol.quote if side in 'buy' else symbol.base
+        balance_field = 'free' if side in 'buy' else 'total'
+        ticker_field = 'ask' if side in 'buy' else 'bid'
+
+        amount = magic2num(
+            amount or self.get_balances(balance_field).get(
+                currency, 0.0))
+
         if amount > 0.0:
             price = magic2num(price or self.get_tickers(symbol).get(ticker_field))
             if side in 'buy':
                 amount = amount / price
-            return self._api.create_order(symbol, type=str(order_type or 'limit'), side=side, amount=amount,
-                                          price=price)
+            try:
+                response = self._api.create_order(
+                    symbol,
+                    type=order_type or 'limit',
+                    side=side,
+                    amount=amount,
+                    price=price)
+            except ccxt.InvalidOrder as err:
+                print(f' - [ERROR] {str(err)}', file=sys.stderr)
+                response = dict()
+        return response
 
     def sell(self, symbol, amount=None, price=None):
-        """
-        Create sell order.
+        """Create sell order.
 
         :param symbol: a valid exchange symbol.
         :type symbol: str or Symbol
@@ -517,63 +520,114 @@ class PandaXT:
         :param float price: sell price or None to auto-fill
         :return dict: order creation result data as dict.
         """
-        return self.create_order(symbol, order_type='limit', side='sell', amount=amount, price=price)
+        return self.create_order(
+            symbol, order_type='limit', side='sell', amount=amount, price=price)
 
-    @retry(exceptions=ccxt.NetworkError)
-    def get_balances(self, field=None):
+    def get_balances(self, field=None, tradeables_only=True):
         """Get balances.
+
+        >>> balances = PandaXT('binance').get_balances('total')
+        >>> isinstance(balances, Wallet)
+        True
 
         :param Text field: accepted values: if None all balances will be loaded, (values; "total", "used", "free")
         :return Wallet: positive balances.
         """
-        raw = self._api.fetch_balance()
-        if 'info' in raw:
-            del raw['info']
-        data = raw.pop(field) if field else raw  # type: dict
 
-        def nonzero(v):
-            if isinstance(v, float):
-                return v > 0.0
+        def is_tradeable(currency, tickers, balance, base_market=None):
+            """Check if a currency balance is over minimum tradeable amount for a base market.
+
+            :param currency:
+            :type currency: str or Currency
+            :param tickers:
+            :type tickers: Tickers
+            :param balance:
+            :type balance: dict or float
+            :param base_market:
+            :type base_market: str or Currency
+            :return:
+            :rtype:
+            """
+            base_market = Currency(base_market or 'BTC')
+            symbol: Symbol = self.altname(currency) + base_market
+
+            market: Market = self.markets.get(symbol, False)
+            if not market:
+                return False
+            # min amount in quote currency
+            limits: Limit = market.limits
+            quote_min_amount = limits.amount
+
+            ticker = tickers[symbol]  # type: Ticker
+            if currency == 'BTC' and 'USD' in base_market:
+                last = 1.0 / ticker.last
             else:
-                return v['total'] if 'total' in v else False
+                last = ticker.last
+            # converting min_amount to base currency
 
-        return Wallet(**{str(k): v for k, v in data.items() if nonzero(v)})
+            base_min_amount = last * quote_min_amount
+            # subtracting a 0.01% fee
+            base_min_amount = base_min_amount * 0.999
+            if isinstance(balance or [], dict):
+                balance = balance.get('total', 0.0)
+            else:
+                balance = balance or 0.0
+            return balance > base_min_amount
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def get_balance(self, currency, field='total'):
+        data = self._api.fetch_balance()
+
+        if 'info' in data:
+            del data['info']
+
+        data = data.pop(field) if field else data  # type: dict
+
+        def is_zero(v):
+            if isinstance(v, float):
+                return v <= 0.0
+            else:
+                return v.get('total', 0.0) <= 0.0
+
+        data = {str(k): v
+                for k, v in data.items()
+                if not is_zero(v)}
+
+        if tradeables_only:
+            symbols = {Currency(c) + Currency('BTC') for c in data}
+            tickers = self.get_tickers(symbols)
+            data = {str(k): v
+                    for k, v in data.items()
+                    if is_tradeable(k, tickers, v)}
+
+        return Wallet(**data)
+
+    def get_balance(self, currency, field=None):
         """Get balance for a currency.
+
+        >>> PandaXT('binance').get_balance('STORJ', 'total')
 
         :param currency: a valid exchange currency.
         :type currency: Text or Currency
         :param Text field: accepted values: total, used, free
         :return Balance: currency with balance amount as float.
         """
-
-        currency = Currency(str(currency))
+        currency = self.altname(str(currency))
 
         if currency not in self.currencies:
-            raise ValueError('{} exchange do not support {} currency'.format(self.name.upper(), currency))
-        balance_data = self.get_balances(field=field) or Balance(currency=currency, **{field: 0.0})
-        # balance_data = balance_data.get(currency, balance_data)
-        return balance_data[currency]
+            raise CurrencyError(currency)
 
-    def _calculate_fees(self, trades):
-        """
+        if field and field in ['total', 'free', 'used']:
+            field = field
+        else:
+            field = None
 
-        :param pd.DataFrame trades:
-        :return:
-        """
-        fee = trades.pop('fee')
-        if fee.any():
-            fee_currency = pd.Series(fee.apply(lambda v: v['currency']), index=trades.index.values, name='fee_currency')
-            trades['fee_currency'] = fee_currency
-            trades['fee_percent'] = trades.T.apply(lambda v: 0.05 if 'BNB' in v['fee_currency'] else 0.1).T
-            trades['fee_base'] = trades['fee_percent'] / 100. * trades['cost']
-            trades['total'] = trades.T.apply(
-                lambda v: v['cost'] - v['fee_base'] if v['side'] in 'sell' else v['cost'] + v['fee_base']).T
+        balance_data = self.get_balances(field=field) or Balance(
+            **{'currency': currency, field: 0.0})
+        if currency not in balance_data:
+            raise ccxt.InsufficientFunds()
+        else:
+            return balance_data[currency]
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def get_user_trades(self, symbol, limit=25):
+    def get_user_trades(self, symbol, side=None, limit=25):
         """Get user trades filter by symbol.
 
         :param symbol: a valid exchange symbol
@@ -581,22 +635,32 @@ class PandaXT:
         :param int limit: a valid limit for rows return (please, refer to official exchange API manual for details)
         :return pd.DataFrame: user trades as pandas DataFrame type.
         """
-        symbol = self.altname(symbol)
+        symbol = str(symbol).upper()
+        if symbol not in (self.symbols, self.altname(symbol) or ''):
+            raise SymbolError(symbol)
+        else:
+            symbol = Symbol(
+                symbol) if symbol in self.symbols else self.altname(symbol)
 
         trades = self._api.fetch_my_trades(symbol, limit=limit)
         if trades:
-            trades = [{k: v for k, v in t.items() if k not in 'info'} for t in trades]
+            trades = [{k: v for k, v in t.items() if k not in 'info'}
+                      for t in trades]
             for idx, t in enumerate(trades.copy()):
-                fee_dict = trades[idx].pop('fee')
-                currency = fee_dict.pop('currency')
-                cost = fee_dict.pop('cost')
-                trades[idx].update(fee_currency=currency, fee_cost=cost)
+                trades[idx].update(total_cost=trades[idx]['fee']['cost'])
+                del trades[idx]['fee']
             trades = pd.DataFrame(trades)
+            trades['real_cost'] = trades['cost'] + \
+                                  (trades['cost'] * trades['price'])
+            # TODO: not totally true so revise it
+            trades['real_price'] = trades['price'] * 1.001
+            trades['real_amount'] = trades['real_cost'] * trades['price']
+            if str(side).lower() in ['buy', 'sell']:
+                trades = trades.query(f'side == "{str(side).lower()}"')
 
             return trades.sort_index(ascending=False)
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
-    def get_trades(self, symbol, limit=25):
+    def get_trades(self, symbol, side=None, limit=25):
         """Get latest user trades for a symbol.
 
         :param symbol: a valid exchange symbol
@@ -606,11 +670,13 @@ class PandaXT:
         symbol = self.altname(symbol)
         trades = self._api.fetch_trades(symbol, limit=limit)
         if trades:
-            trades = [{k: v for k, v in t.items() if k not in 'info'} for t in trades]
-        trades = pd.DataFrame(trades)
+            trades = [{k: v for k, v in t.items() if k not in 'info' and v}
+                      for t in trades]
+        trades = pd.DataFrame(trades).set_index('timestamp')
+        if str(side).lower() in ['buy', 'sell']:
+            trades = trades.query(f'side == "{str(side).lower()}"')
         return trades.sort_index(ascending=False)
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
     def get_cost(self, symbol, **kwargs):
         """FIXME do not work well sometimes giving a bad result by unknown reason.
 
@@ -618,7 +684,7 @@ class PandaXT:
 
         >>> api = PandaXT('binance')
         >>> symbol_cost = api.get_cost('AGI/BTC')
-        >>> isinstance(symbol_cost, float)
+        >>> symbol_cost
         True
 
         :param symbol: a valid exchange symbol.
@@ -627,44 +693,51 @@ class PandaXT:
         :return float: cost calculation result as float type.
         """
         symbol = self.altname(symbol)
-        base, quote = symbol.parts if isinstance(symbol, Symbol) else Currency(symbol) + 'BTC'
+        if isinstance(symbol or 0, Currency):
+            symbol = symbol + Currency('BTC')
+
+        base, quote = symbol.parts
 
         # reuse provided balance and trades data (for rate limit save)
         if 'balance' in kwargs:
-            balance = kwargs.get('balance')  # type: Wallet
-            balance = balance[base] if isinstance(balance, Wallet) else balance
+            cached = kwargs.get('balance')  # type: Balance
+            balance = cached[base] if isinstance(cached, Wallet) else cached
         else:
             balance = self.get_balance(base, field='total')  # type: Balance
 
-        balance = balance.total if balance and hasattr(balance, 'total') else balance
+        total_balance = balance.total if balance and hasattr(
+            balance, 'total') else balance
 
-        if balance > 0.0:
-            # balance = balance.total
-            trades = kwargs.get('trades', self.get_user_trades(symbol))
+        if total_balance > 0.0:
+            trades = kwargs.get('trades', [])
+            if not len(trades):
+                trades = self.get_user_trades(symbol, side='buy')
+            elif not isinstance(trades, pd.DataFrame):
+                trades = pd.DataFrame(trades)
+            if trades['order'].isna().all():
+                trades['order'].update(trades['id'])
 
-            buys = trades.query('side == "buy"')
+            # group-by operations per column
+            columns_op = {'amount': 'sum',
+                          'price': 'mean',
+                          'cost': 'mean',
+                          'timestamp': 'mean'}
 
-            # if "order" column is None replace it with "id" column
-            if buys['order'].isna().all():
-                buys['order'].update(buys['id'])
+            trades = trades.groupby('order').agg(columns_op).sort_index(
+                ascending=False)  # type: pd.DataFrame
+            trades = trades[['price', 'amount']].reset_index(drop=True)
 
-            # groupby operations per column
-            columns_op = dict(amount='sum', price='mean', cost='mean', timestamp='mean')
-            buys = buys.groupby('order').agg(columns_op).sort_index(ascending=False)  # type: pd.DataFrame
-            buys = buys[['price', 'amount']].reset_index(drop=True)
-
-            for index, price, amount in buys.itertuples():
-                if balance - amount <= 0:
-                    if round(balance - amount, 8) != 0.0:
-                        prices, amounts = buys[:index + 1].T.values
-                        amounts[-1] = balance
+            for index, price, amount in trades.itertuples():
+                if total_balance - amount <= 0:
+                    if round(total_balance - amount, 8) != 0.0:
+                        prices, amounts = trades[:index + 1].T.values
+                        amounts[-1] = total_balance
                     else:
-                        prices, amounts = buys[:index + 1].T.values
+                        prices, amounts = trades[:index + 1].T.values
                     return round(pd.np.average(prices, weights=amounts), 10)
                 else:
-                    balance -= amount
+                    total_balance -= amount
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
     def get_order_status(self, order_id, symbol=None):
         """Get order status by order_id.
 
@@ -675,7 +748,6 @@ class PandaXT:
         """
         return self._api.fetch_order_status(order_id, symbol=symbol)
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
     def get_open_orders(self, symbol=None):
         """Get open orders.md for a symbol.
 
@@ -685,10 +757,12 @@ class PandaXT:
         """
         assert isinstance(symbol or 0, str) and symbol in self.symbols
         raw = self._api.fetch_open_orders(symbol)
+        if isinstance(raw or 0, list) and len([r for r in raw if r]):
+            return [{Symbol(k): v for k, v in r.items() if k not in [
+                'info']} for r in raw.copy()]
+        else:
+            return list()
 
-        return [{Symbol(k): v for k, v in r.items() if k not in 'info'} for r in raw.copy()]
-
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
     def get_profit(self, currency):
         """Returns current profit for a currency and its weighted average buy cost.
 
@@ -705,10 +779,8 @@ class PandaXT:
         else:
             return 0.0, 0.0
 
-    @retry(exceptions=(ccxt.NetworkError, ccxt.ExchangeError))
     def cancel_order(self, symbol, last_only=False):
-        """
-        Cancel symbols open orders.md for a symbol.
+        """Cancel symbols open orders.md for a symbol.
 
         :param symbol: the symbol with open orders.md.
         :type symbol: Bool or Symbol
@@ -725,10 +797,12 @@ class PandaXT:
             else:
                 canceled_orders = list()
                 for p in pending_orders:
-                    result = self._api.cancel_order(p['id'], symbol)
+                    return_value = self._api.cancel_order(p['id'], symbol)
 
-                    if result and result.get('status', '') in 'cancel':
-                        canceled_orders.append({k: v for k, v in result.items() if v})
+                    if return_value and return_value.get(
+                        'status', '') in 'cancel':
+                        canceled_orders.append(
+                            {k: v for k, v in return_value.items() if v})
                     else:
                         self._api.cancel_order(p['id'], symbol)
                 return canceled_orders
@@ -744,8 +818,7 @@ class PandaXT:
         return self.id
 
     def __repr__(self):
-        """
-        PandaXT instance as "str" type representation.
+        """PandaXT instance as "str" type representation.
 
         >>> PandaXT('binance')
         binance
@@ -755,10 +828,9 @@ class PandaXT:
         return self.id
 
     def __contains__(self, item):
-        """
-        Check if a symbol or currency is supported by exchange.
+        """Check if a symbol or currency is supported by exchange.
 
-        >>> exchange = PandaXT('cryptopia')
+        >>> exchange = PandaXT('binance')
         >>> Currency('ETH') in exchange
         True
         >>> Currency('ETH/BTC') in exchange
@@ -770,32 +842,5 @@ class PandaXT:
         :type item: str or Currency or Symbol
         :return bool: True is item is supported, otherwise False.
         """
-        return str(item) in self.markets.keys() or str(item) in map(str, self.currencies)
-
-
-class Exchanges(UserDict):
-    """Dick like class to store multiple exchanges."""
-
-    def __init__(self, **exchanges):
-        """Constructor.
-
-        :param list exchanges: exchange names as list
-        """
-        super().__init__(**exchanges)
-        exchanges = self._get_exchange_latest_versions(exchanges)
-        self.data.update({v: PandaXT(v) for v in exchanges})
-
-    def __getattr__(self, item):
-        item = self._get_latest_version_name(item)
-        if item in self._exchanges:
-            return PandaXT(self._exchanges.get(item))
-        else:
-            raise AttributeError('{} is not a supported exchange.'.format(item.upper()))
-
-    def __getitem__(self, item):
-        return getattr(self, item)
-
-
-if __name__ == '__main__':
-    a = PandaXT('binance')
-    result = a.get_cost('AGI/BTC')
+        return str(item) in self.markets or str(
+            item) in map(str, self.currencies)
