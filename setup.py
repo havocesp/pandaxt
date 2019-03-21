@@ -3,14 +3,13 @@ from setuptools import setup, find_packages
 
 import pandaxt as pxt
 
-requirements = ['requests', 'pandas', 'ccxt', 'tulipy', 'begins', 'py-term']
+requirements = ['requests', 'pandas', 'ccxt', 'Cython', 'tulipy', 'py-term', 'cctf', 'diskcache']
 
 exclude = ['.idea*', 'build*', '{}.egg-info*'.format(pxt.__package__), 'dist*', 'venv*', 'doc*', 'lab*']
 
 classifiers = [
     'Development Status :: 5 - Production',
     'License :: OSI Approved :: MIT License',
-    'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
 ]
@@ -27,6 +26,5 @@ setup(
     long_description=pxt.__description__,
     description=pxt.__description__,
     classifiers=classifiers,
-    install_requires=requirements,
-    dependency_links=['https://github.com/havocesp/cctf.git'],
+    install_requires=requirements
 )
