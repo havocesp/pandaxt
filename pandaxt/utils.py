@@ -13,26 +13,6 @@ Float = float
 Bool = bool
 
 
-# def check_symbol(*args, **kwargs):
-#     def wrap(*fn_args):
-#         def wrapped_f(*args, **kwargs):
-#             args = list(args)
-#             fn = args.pop(0)
-#             s = kwargs.get('symbol')
-#             if str(s).upper() in self.symbols:
-#                 return Symbol(s)
-#             else:
-#                 for a in args:
-#                     if str(s).upper() in self.symbols:
-#                         return Symbol(a)
-#
-#             fn(*args)
-#
-#         return wrapped_f
-#
-#     return wrap
-
-
 def error(text=None) -> Void:
     """Print a formatted error text.
 
@@ -238,7 +218,7 @@ def dict_none_drop(d, default=None):
         if v is not None:
             if isinstance(v, dict):
                 v = dict_none_drop(v, default)
-            elif not isinstance(v, str) and isinstance(v, tp.Iterable):
+            elif not isinstance(v, str) and isinstance(v, Iter):
                 v = [e or default for e in list(v) if e is not None or default is not None]
         elif default is not None:
             v = default

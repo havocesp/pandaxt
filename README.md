@@ -30,6 +30,9 @@ print(api.markets)
 
 Project changes over versions.
 
+### 0.1.8
+ - Minor fixes.
+
 ### 0.1.7
  - Fixed "currencies" method and recursion limit bugs.
 

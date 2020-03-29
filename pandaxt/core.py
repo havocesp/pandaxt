@@ -1,25 +1,23 @@
 """Core module."""
 import functools
+import logging
 import os
 import pathlib
 import sys
 import warnings
 from builtins import bool as Bool, int as Int, float as Float
 from collections import OrderedDict
-import logging
 from typing import Text, Dict, List, Union as U, NoReturn, Tuple, Optional as Opt, Set
 
 import ccxt
 import pandas as pd
 import tulipy
-
 from cctf import Symbol, Tickers, Currency, Balance, Wallet, Markets, Market, Ticker, Limit, Symbols, Currencies
 from diskcache import Cache
 from pandas.core.common import SettingWithCopyWarning
-from tulipy import InvalidOptionError
-
 from pandaxt.exceptions import TimeframeError, SymbolError, CurrencyError, SideError
 from pandaxt.utils import load_dotenv, magic2num  # , check_symbol
+from tulipy import InvalidOptionError
 
 warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
 
@@ -71,7 +69,7 @@ class PandaXT:
         :param Text api_key: API key
         :param Text secret: API secret
         :param U[Bool, Text] user_agent:  if True, exchange API keys will be load from "$HOME/.env" file.
-        :param Bool clear_cachet:  if True, current cache will be ignored and overwrite.
+        :param Bool clear_cache:  if True, current cache will be ignored and overwrite.
         """
         # for cache purposes
         self._basemarkets = None
@@ -206,7 +204,7 @@ class PandaXT:
         # Initialize markets, symbols, currencies and basemarkets
         if self._currencies is None:
             self._currencies = [s.base for s in self.symbols]
-            self._currencies = self._currencies + self.base_markets
+            self._currencies = self._currencies + list(self.base_markets)
             self._currencies = sorted(list(set(self._currencies)))
 
         return Currencies(self._currencies)
@@ -289,11 +287,12 @@ class PandaXT:
 
     def get_currency(self, currency) -> Currency:
         """Currency name sanitizer."""
-        if currency in self._api.commonCurrencies:
-            currency = self._api.commonCurrencies.get(currency)
-        if str(currency) not in self.currencies:
-            log.debug(f'Currency {str(currency)} is not supported by exchange.')
-        return Currency(currency)
+        if currency:
+            if currency in self._api.commonCurrencies:
+                currency = self._api.commonCurrencies.get(currency)
+            if currency not in self.currencies:
+                log.debug(f'Currency {str(currency)} is not supported by exchange.')
+            return Currency(currency)
 
     def altname(self, name) -> U[Currency, Symbol]:
         """Retrieve alternative currency or symbol name used in a specific exchange.
