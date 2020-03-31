@@ -6,8 +6,6 @@ import pathlib
 from itertools import repeat, starmap
 from typing import Mapping as Map, Text as Str, NoReturn as Void, Callable, Any, Iterable as Iter
 
-import requests
-
 Int = int
 Float = float
 Bool = bool
@@ -100,6 +98,11 @@ def flt(value, p=None, as_str=False):
 
 
 def to_lower(obj: Any) -> Any:
+    """Lower case conversion of practically any str convertible type.
+
+    :param obj: str convertible type to be "lower cased"
+    :return: obj as str lower cased.
+    """
     if obj:
         T = type(obj)
         if isinstance(obj, Str):
@@ -142,8 +145,7 @@ def auto_precision(num) -> int:
     >>> auto_precision(12300)
     12300
 
-    :param float number: number used to infer precision.
-    :param int max_precision: max precision permitted (default 8).
+    :param float num: number used to infer precision.
     :return: precision as int (number of decimals recommended)
     """
     try:
@@ -283,12 +285,6 @@ def load_dotenv(env_path=None):
 
     :param str env_path: str containing path to ".env" file (default "$HOME/.env")
     """
-
-    # def env2dict(s):
-    #    if len(s) and '=' in s and s[0].isalpha():
-    #        k, v = s.split('=', maxsplit=1)
-    #        return {k: str(v).strip('"\'')}
-
     env_file = pathlib.Path.home() / str(env_path or '.env')
 
     if env_file.exists():
@@ -297,22 +293,6 @@ def load_dotenv(env_path=None):
         lines = content.split('\n')
         for ln in [l for l in lines if len(l or '')]:
             if '=' in ln and ln[0].isupper():
-                # env2dict(ln)
                 k, v = ln.split('=', maxsplit=1)
                 if k and v and len(k) and len(v):
                     os.environ.update({k: v.strip("\"'")})
-
-
-def get_tor_session(port=9050):
-    """Get a "Session" instance to socks5 tor proxy.
-
-    :param int port: the tor service port (default 9050)
-    :return requests.Session: a requests Session like instance ready for tor network connection.
-    """
-    session = requests.session()
-    # Tor uses the 9050 port as the default socks port
-    session.proxies = {
-        "http": "socks5://127.0.0.1:{:d}".format(port),
-        "https": "socks5://127.0.0.1:{:d}".format(port)
-    }
-    return session
