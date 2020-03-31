@@ -30,6 +30,10 @@ print(api.markets)
 
 Project changes over versions.
 
+### 0.1.9
+ - Removed unnecessary comments and code at utils.py
+ - Added docstring to to_lower function.
+
 ### 0.1.8
  - Minor fixes.
 
