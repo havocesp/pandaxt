@@ -10,3 +10,4 @@ TODO.md
 /pandaxt/data/*
 pandaxt/.mypy_cache/
 tests/
+pandaxt/__pycache__/
