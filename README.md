@@ -14,7 +14,9 @@ Python ccxt multi-exchange lib mixed with pandas lib for data handling.
 
  - [ccxt](https://pypi.org/project/ccxt)
  - [pandas](https://pypi.org/project/pandas)
- - [tulipy](https://pypi.org/project/tulipy/)
+ - [newtulipy](https://pypi.org/project/newtulipy)
+ - [cctf](https://pypi.org/project/cctf)
+ - [py-term](https://pypi.org/project/py-term)
 
 ## Usage
 
@@ -29,6 +31,10 @@ print(api.markets)
 ## Changelog
 
 Project changes over versions.
+
+### 0.1.9
+ - Added and/or updated packages at requirements.txt file.
+ - Updated setup.py classifiers with new python versions.
 
 ### 0.1.8
  - Minor fixes.
