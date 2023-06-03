@@ -5,10 +5,10 @@ from pandaxt.core import PandaXT
 __project__ = 'PandaXT'
 __package__ = 'pandaxt'
 __author__ = 'Daniel J. Umpierrez'
-__license__ = 'UNLICENSE'
-__version__ = '0.1.8'
+__license__ = 'MiT'
+__version__ = '0.1.9'
 __description__ = __doc__
-__site__ = 'https://github.com/havocesp/{}'.format(__package__)
+__site__ = f'https://github.com/havocesp/{__package__}'
 __email__ = 'umpierrez@pm.me'
 __keywords__ = 'altcoins altcoin exchange pandas bitcoin trading'
 
