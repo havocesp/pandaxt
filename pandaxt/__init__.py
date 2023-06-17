@@ -6,10 +6,10 @@ __project__ = 'PandaXT'
 __package__ = 'pandaxt'
 __author__ = 'Daniel J. Umpierrez'
 __license__ = 'MiT'
-__version__ = '0.1.9'
+__version__ = '0.1.10'
 __description__ = __doc__
 __site__ = f'https://github.com/havocesp/{__package__}'
-__email__ = 'umpierrez@pm.me'
+__email__ = '10012416+havocesp@users.noreply.github.com'
 __keywords__ = 'altcoins altcoin exchange pandas bitcoin trading'
 
 

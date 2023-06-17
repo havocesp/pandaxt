@@ -11,3 +11,4 @@ TODO.md
 pandaxt/.mypy_cache/
 tests/
 pandaxt/__pycache__/
+.mypy_cache

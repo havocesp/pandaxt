@@ -4,7 +4,7 @@ A Python 3 "__ccxt__" wrapper over __Pandas__ lib.
 
  - Author: Daniel J. Umpierrez
  - License: UNLICENSE
- - Version: 0.1.7
+ - Version: 0.1.10
 
 ## Description
 
@@ -12,11 +12,13 @@ Python ccxt multi-exchange lib mixed with pandas lib for data handling.
 
 ## Requirements
 
- - [ccxt](https://pypi.org/project/ccxt)
- - [pandas](https://pypi.org/project/pandas)
- - [newtulipy](https://pypi.org/project/newtulipy)
- - [cctf](https://pypi.org/project/cctf)
- - [py-term](https://pypi.org/project/py-term)
+- [requests](https://pypi.org/project/requests)
+- [regex](https://pypi.org/project/regex)
+- [ccxt](https://pypi.org/project/ccxt)
+- [pandas](https://pypi.org/project/pandas)
+- [Cython](https://pypi.org/project/Cython)
+- [diskcache](https://pypi.org/project/diskcache)
+- [newtulipy](https://pypi.org/project/newtulipy/)
 
 ## Usage
 
@@ -32,15 +34,24 @@ print(api.markets)
 
 Project changes over versions.
 
+### 0.1.10
+
+- Update python versions support ti >=3.8
+- Update some requirements.
+- Added tox.ini and pyproject.toml files.
+
 ### 0.1.9
- - Added and/or updated packages at requirements.txt file.
- - Updated setup.py classifiers with new python versions.
+
+- Added and/or updated packages at requirements.txt file.
+- Updated setup.py classifiers with new python versions.
 
 ### 0.1.8
- - Minor fixes.
+
+- Minor fixes.
 
 ### 0.1.7
- - Fixed "currencies" method and recursion limit bugs.
+
+- Fixed "currencies" method and recursion limit bugs.
 
 ### 0.1.6
 - README requirements fixed
