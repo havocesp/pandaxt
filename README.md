@@ -4,7 +4,7 @@ A Python 3 "__ccxt__" wrapper over __Pandas__ lib.
 
  - Author: Daniel J. Umpierrez
  - License: UNLICENSE
- - Version: 0.1.10
+ - Version: 0.1.7
 
 ## Description
 
@@ -12,13 +12,11 @@ Python ccxt multi-exchange lib mixed with pandas lib for data handling.
 
 ## Requirements
 
- - [requests](https://pypi.org/project/requests)
- - [regex](https://pypi.org/project/regex)
  - [ccxt](https://pypi.org/project/ccxt)
  - [pandas](https://pypi.org/project/pandas)
- - [Cython](https://pypi.org/project/Cython)
- - [diskcache](https://pypi.org/project/diskcache)
- - [newtulipy](https://pypi.org/project/newtulipy/)
+ - [newtulipy](https://pypi.org/project/newtulipy)
+ - [cctf](https://pypi.org/project/cctf)
+ - [py-term](https://pypi.org/project/py-term)
 
 ## Usage
 
@@ -34,14 +32,9 @@ print(api.markets)
 
 Project changes over versions.
 
-### 0.1.10
- - Update python versions support ti >=3.8
- - Update some requirements.
- - Added tox.ini and pyproject.toml files.
-
 ### 0.1.9
- - Removed unnecessary comments and code at utils.py
- - Added docstring to to_lower function.
+ - Added and/or updated packages at requirements.txt file.
+ - Updated setup.py classifiers with new python versions.
 
 ### 0.1.8
  - Minor fixes.
