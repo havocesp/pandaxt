@@ -4,7 +4,7 @@ import inspect
 import os
 import pathlib
 from itertools import repeat, starmap
-from typing import Mapping as Map, Text as Str, NoReturn as Void, Callable, Any, Iterable as Iter
+from typing import Any, Callable, Iterable as Iter, Mapping as Map, NoReturn as Void, Text as Str
 
 Int = int
 Float = float
@@ -104,13 +104,13 @@ def to_lower(obj: Any) -> Any:
     :return: obj as str lower cased.
     """
     if obj:
-        T = type(obj)
+        tt = type(obj)
         if isinstance(obj, Str):
             obj = obj.lower()
         elif isinstance(obj, Map):
-            obj = T({k.lower(): v for k, v in obj.items()})
+            obj = tt({k.lower(): v for k, v in obj.items()})
         elif isinstance(obj, Iter):
-            obj = T([v.lower() if isinstance(v, Str) else v for v in obj])
+            obj = tt([v.lower() if isinstance(v, Str) else v for v in obj])
     return obj
 
 
@@ -125,17 +125,17 @@ def apply(obj: Any, func: Callable) -> Any:
     :return: "obj" after the function application is done.
     """
     if obj:
-        T = type(obj)
+        tt = type(obj)
         if isinstance(obj, Map):
-            obj = T({k.lower(): func(v) for k, v in obj.items()})
+            obj = tt({k.lower(): func(v) for k, v in obj.items()})
         elif isinstance(obj, Iter):
-            obj = T([func(v) for v in obj])
+            obj = tt([func(v) for v in obj])
         else:
             obj = func(obj)
     return obj
 
 
-def auto_precision(num) -> int:
+def auto_precision(num) -> float:
     """Infer precision base on number size.
 
     >>> auto_precision(0.34388)
@@ -153,7 +153,7 @@ def auto_precision(num) -> int:
     except ValueError:
         return num
 
-    if num is not None and isinstance(num, float):
+    if isinstance(num, float):
         for v in [(e, 10000.0 / (10 ** e)) for e in range(8, 0, -1)]:
             precision, cutoff = v
             if num < cutoff:
@@ -162,39 +162,41 @@ def auto_precision(num) -> int:
             return round(num)
 
 
-def num2str(n, precision=None):
-    """Numeric type infer and parser.
-
-    Accept any Iterable (dict, list, tuple, set, ...) or built-in data types int, float, str, ... and try  to
-    convert it a number data type (int, float)
-
-    >>> num2str(['10.032', '10.32032', '11.392', '13'])
-    [10.03, 10.32, 11.39, 13]
-
-    :param n: number
-    :type n: float or int or Iterable
-    :param int precision:
-    :return tp.Iterable:
-    """
-    if n is not None:
-        if isinstance(n, str):
-            backup = type(n)(n)
-            try:
-                precision = precision if isinstance(precision or '', int) else auto_precision(n)
-                n = flt(n, precision)
-            except ValueError:
-                n = backup
-        if isinstance(n, float):
-            precision = precision if isinstance(
-                precision or '', int) else auto_precision(n)
-            n = int(n) if n.is_integer() else round(n, precision)
-        elif isinstance(n, str):
-            n = flt(n, precision, as_str=True)
-        elif isinstance(n, Map):
-            n = {k: num2str(v, precision) if isinstance(v, Iter) else v for k, v in dict(n).items()}
-        elif isinstance(n, Iter):
-            n = [num2str(n, precision) if isinstance(n, Iter) else n for n in list(n)]
-    return n
+# def num2str(value, precision=None):
+#     """Numeric type infer and parser.
+#
+#     Accept any Iterable (dict, list, tuple, set, ...) or built-in data types int, float, str, ... and try  to
+#     convert it a number data type (int, float)
+#
+#     >>> num2str(['10.032', '10.32032', '11.392', '13'])
+#     [10.03, 10.32, 11.39, 13]
+#
+#     :param value: number
+#     :type value: float or int or Iterable
+#     :param int precision:
+#     :return tp.Iterable:
+#     """
+#     if value is not None:
+#         if isinstance(value, str):
+#             backup = type(value)(value)
+#             try:
+#                 if isinstance(precision, (str, float)):
+#                     precision = auto_precision(value)
+#                 value = flt(value, precision)
+#             except ValueError:
+#                 value = backup
+#         if isinstance(value, float):
+#             precision = precision if isinstance(
+#                 precision or '', int
+#             ) else auto_precision(value)
+#             value = int(value) if value.is_integer() else round(value, precision)
+#         elif isinstance(value, str):
+#             value = flt(value, precision, as_str=True)
+#         elif isinstance(value, Map):
+#             value = {k: num2str(v, precision) if isinstance(v, Iter) else v for k, v in dict(value).items()}
+#         elif isinstance(value, Iter):
+#             value = [num2str(n, precision) if isinstance(n, Iter) else n for n in list(value)]
+#     return value
 
 
 def dict_none_drop(d, default=None):
@@ -215,7 +217,7 @@ def dict_none_drop(d, default=None):
     :param tp.Any default: None replacement value (default None)
     :return dict: "d" dict without None values and with all float types rounded to 8 precision.
     """
-    result = dict()
+    result = {}
     for k, v in d.items():
         if v is not None:
             if isinstance(v, dict):
@@ -285,13 +287,13 @@ def load_dotenv(env_path=None):
 
     :param str env_path: str containing path to ".env" file (default "$HOME/.env")
     """
-    env_file = pathlib.Path.home() / str(env_path or '.env')
+    env_file = pathlib.Path.home().joinpath(env_path or '.env')
 
-    if env_file.exists():
-        print(' - [pandaxt.utils][DEBUG] Reading ".env" file ...')
+    if env_file.is_file():
+        # print(' - [pandaxt.utils][DEBUG] Reading ".env" file ...')
         content = env_file.read_text()
         lines = content.split('\n')
-        for ln in [l for l in lines if len(l or '')]:
+        for ln in [ll for ll in lines if len(ll or '')]:
             if '=' in ln and ln[0].isupper():
                 k, v = ln.split('=', maxsplit=1)
                 if k and v and len(k) and len(v):

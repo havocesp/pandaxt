@@ -1,8 +1,6 @@
 requests
 pandas
-ccxt
 Cython
-tulipy
-cctf
 diskcache
-py-term
+newtulipy
+regex
