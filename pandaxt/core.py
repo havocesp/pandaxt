@@ -721,8 +721,7 @@ class PandaXT:
             symbol = Symbol(
                 symbol) if symbol in self.symbols else self.altname(symbol)
 
-        trades = self._api.fetch_my_trades(symbol, limit=limit)
-        if trades:
+        if trades := self._api.fetch_my_trades(symbol, limit=limit):
             trades = [{k: v for k, v in t.items() if k not in 'info'}
                       for t in trades]
             for idx, t in enumerate(trades.copy()):
@@ -748,8 +747,7 @@ class PandaXT:
         :return: latest trades for a symbol.
         """
         symbol = self.altname(symbol)
-        trades = self._api.fetch_trades(symbol, limit=limit)
-        if trades:
+        if trades := self._api.fetch_trades(symbol, limit=limit):
             trades = [{k: v for k, v in t.items() if k not in 'info' and v}
                       for t in trades]
         trades = pd.DataFrame(trades).set_index('timestamp')
